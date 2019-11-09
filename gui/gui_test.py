@@ -1,10 +1,16 @@
 from tkinter import *
 from PIL import Image, ImageTk
+import glob
+import cv2
+from imutils.video import VideoStream
 
 class Application(Frame):
     def play_game(self):
         print("Let's play a game...")
         self.update_background("s")
+    
+    def exit_game(self):
+        self.open = False
 
     def createWidgets(self):
         image2 = Image.open("rockpaperscissors/rock/0bioBZYFCXqJIulm.png")
@@ -21,7 +27,7 @@ class Application(Frame):
         self.QUIT["fg"]   = "red"
         self.QUIT["height"]   = "3"
         self.QUIT["width"]   = "15"
-        self.QUIT["command"] =  self.quit
+        self.QUIT["command"] =  self.exit_game
         self.QUIT.pack(side="left")
 
         self.PLAY = Button(self.BUTTONS)
@@ -31,6 +37,11 @@ class Application(Frame):
         self.PLAY["command"] = self.play_game
         self.PLAY.pack(side="left")
 
+    def update_background_opencv(self, cv_image):
+        image = ImageTk.PhotoImage(Image.fromarray(cv_image))
+        self.IMAGE.image = image
+        self.IMAGE.configure(image=image)
+
     def update_background(self, image_name):
         image2 = Image.open("rockpaperscissors/scissors/0zoQAmDFXehOZsAp.png")
         image = ImageTk.PhotoImage(image2)
@@ -38,15 +49,35 @@ class Application(Frame):
         self.IMAGE.configure(image=image)
 
     def __init__(self, master=None):
-        Frame.__init__(self, master, background="red", borderwidth=5)
-        #self.resizable(width=False, height=False)
-        #container = master.Frame(self)
-        #container.pack(side="top", fill="both", expand=1)
+        Frame.__init__(self, master)
+        self.open = True
         self.pack(side="top", fill="both", expand=1)
         self.createWidgets()
 
-root = Tk()
-root.geometry("1080x720+300+100")
-app = Application(master=root)
-app.mainloop()
-root.destroy()
+def live_detection():
+    root = Tk()
+    root.geometry("1080x720+300+100")
+    app = Application(master=root)
+
+    images = glob.glob("rockpaperscissors/scissors/*.png")
+    print(images)
+    num = 0
+    video_source = VideoStream(src=0).start()
+
+    while app.open:
+        # image = cv2.imread(images[num])
+        # image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        # num += 1
+        # if num >= len(images):
+        #     num = 0
+
+        image = video_source.read()
+        image = cv2.flip(image, 1)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+        app.update_background_opencv(image)
+        app.update_idletasks()
+        app.update()
+    root.destroy()
+
+live_detection()
