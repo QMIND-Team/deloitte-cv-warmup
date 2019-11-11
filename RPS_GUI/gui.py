@@ -5,9 +5,11 @@ from imutils.video import VideoStream
 import tkinter as tk
 from PIL import Image, ImageTk
 import time
+import random
 
 class GUI(tk.Frame):
     def train_model(self):
+        self.play_time = -1
         self.update_prediction_text("TRAINING")
         self.update_background(np.zeros((self.height, self.width, 3), np.uint8))
         self.update_idletasks()
@@ -26,11 +28,26 @@ class GUI(tk.Frame):
         self.PREDICTION.configure(text=text)
         self.prediction_time = time.time()
 
+    def win_or_loss(self, user, bot):
+        if user == bot:
+            return "TIE"
+        elif (
+            user == "rock" and bot == "scissors" or
+            user == "paper" and bot == "rock" or
+            user == "scissors" and bot == "paper"
+        ):
+           return "WIN"
+        return "LOSS"
+
     def detect_and_display(self):
         # Get frame from video soruce
         frame = self.video_source.read()
-        prediction = self.model.detect(frame)
-        self.update_prediction_text(prediction)
+        user = self.model.detect(frame)
+        bot = self.model.CATEGORIES[random.randint(0,2)]
+        win = self.win_or_loss(user, bot)
+        msg = "{}\nPrediction: {} vs {}".format(win, user, bot)
+        self.update_prediction_text(msg)
+        self.play_time = time.time() + 3
 
     def createWidgets(self):
         self.IMAGE = tk.Label(self)
@@ -87,6 +104,8 @@ class GUI(tk.Frame):
                 self.update_prediction_text("1")
             elif self.play_time + 1 < time.time():
                 self.update_prediction_text("2")
+            elif self.play_time < time.time():
+                self.update_prediction_text("3")
         elif self.prediction_time + 3.0 < time.time():
             self.update_prediction_text("")
         if self.state == "liveimage":

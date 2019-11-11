@@ -4,7 +4,13 @@ from sklearn.model_selection import train_test_split
 import os
 import cv2
 
-class MODEL():  
+class MODEL():
+    def prep_image(self, image):
+        # Convert image for model
+        image = cv2.resize(image, (self.IMG_WIDTH, self.IMG_HEIGHT))
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        return image
+
     def load_data(self):
         X = []
         y = []
@@ -16,17 +22,14 @@ class MODEL():
             path = os.path.join(self.DATA_DIR, category)
             
             for img in os.listdir(path):  # get all images in the path
-                img_arr = cv2.imread(os.path.join(path, img), cv2.IMREAD_GRAYSCALE)
-                img_arr = cv2.resize(img_arr, (self.IMG_WIDTH, self.IMG_HEIGHT))
-                img_arr = np.asarray(img_arr)
+                image = cv2.imread(os.path.join(path, img))
+                img_arr = np.asfarray(self.prep_image(image))
                 X.append(img_arr)
                 y.append(one_hot)
                 
         return X, y
 
-    def train_model(self):
-        X, y = self.load_data()
-
+    def init_model(self):
         # Configure the CNN
         self.model = tf.keras.models.Sequential()
 
@@ -56,6 +59,10 @@ class MODEL():
                         optimizer="rmsprop",
                         metrics=['accuracy'])
 
+    def train_model(self):
+        self.init_model()
+
+        X, y = self.load_data()
         # prep model for training
 
         # split into training and testing datasets
@@ -89,23 +96,16 @@ class MODEL():
         # save the file for use in future sessions
         tf.keras.models.save_model(self.model, self.FILE, True)
 
-    def detect(self, frame):
-        # Convert image for model
-        small = cv2.resize(frame, (self.IMG_WIDTH, self.IMG_HEIGHT))
-        gray = cv2.cvtColor(small, cv2.COLOR_RGB2GRAY)
-        # Reshape for input to NN
-        img_arr = gray.reshape(1, self.IMG_WIDTH, self.IMG_HEIGHT, 1)
-        # Cast to float to handle error
-        img_arr = tf.cast(img_arr, tf.float32)
+    def detect(self, image):
         # Save colour image to show to user
-        colour = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        
-        prediction = self.model.predict(img_arr)
+        image = self.prep_image(image)
+        image = image.reshape(1, self.IMG_WIDTH, self.IMG_HEIGHT, 1)
+        # Cast to float to handle error
+        image = tf.cast(image, tf.float32)
+        prediction = self.model.predict(image)
         # Convert prediction from one hot to category
         index = tf.argmax(prediction[0], axis=0)
-        prediction = self.CATEGORIES[index]
-
-        return prediction
+        return self.CATEGORIES[index]
 
     def __init__(self):
         self.FILE = "RPS_GUI.h5"
@@ -119,5 +119,4 @@ class MODEL():
         if os.path.exists(self.FILE):
             self.model = tf.keras.models.load_model(self.FILE)
         else:
-            self.model = None
             self.train_model()
