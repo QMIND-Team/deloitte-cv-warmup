@@ -1,6 +1,5 @@
 from tkinter import *
 from PIL import Image, ImageTk
-import glob
 import cv2
 from imutils.video import VideoStream
 
@@ -58,19 +57,9 @@ def live_detection():
     root = Tk()
     root.geometry("1080x720+300+100")
     app = Application(master=root)
-
-    images = glob.glob("rockpaperscissors/scissors/*.png")
-    print(images)
-    num = 0
     video_source = VideoStream(src=0).start()
 
     while app.open:
-        # image = cv2.imread(images[num])
-        # image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        # num += 1
-        # if num >= len(images):
-        #     num = 0
-
         image = video_source.read()
         image = cv2.flip(image, 1)
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
