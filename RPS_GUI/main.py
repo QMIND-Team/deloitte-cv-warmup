@@ -15,7 +15,7 @@ root.geometry(geom)
 video_source = VideoStream(src=0).start()
 model = MODEL()
 
-app = GUI(master=root, model=model, video_source=video_source, width=width, height=height)
+app = GUI(master=root, model=model, video_source=video_source, width=WIDTH, height=HEIGHT)
 
 while app.state != "closed":
     app.update_components()
