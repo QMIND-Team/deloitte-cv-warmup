@@ -3,17 +3,76 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 import os
 import cv2
+import random
+import sys, getopt
+import imutils
 
 class MODEL():
-    def prep_image(self, image):
+    def load_model(self, location):
+        # load the model if it was saved previously
+        if os.path.exists(location):
+            self.model = tf.keras.models.load_model(location)
+            return True
+        return False
+
+    def prep_image_jd(self, image):
         # Convert image for model
         image = cv2.resize(image, (self.IMG_WIDTH, self.IMG_HEIGHT))
         image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         return image
 
+    def prep_image_eric(self, image):
+        # Convert image for model
+        image = cv2.resize(image, (self.IMG_WIDTH, self.IMG_HEIGHT))
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        return image
+
+    def prep_image_brendon(self, image):
+        image = cv2.resize(image, (self.IMG_WIDTH, self.IMG_HEIGHT))
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        #image = tf.keras.utils.normalize(image)
+        return image
+
+    def prep_image_connor(self, image):
+        image = cv2.resize(image, (self.IMG_WIDTH, self.IMG_HEIGHT))
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        image = cv2.Canny(image, 100, 200)
+        return image
+
+    def prep_image(self, image):
+        if self.USER == "JD":
+            return self.prep_image_jd(image)
+        elif self.USER == "ERIC":
+            return self.prep_image_eric(image)
+        elif self.USER == "BRENDON":
+            return self.prep_image_brendon(image)
+        elif self.USER == "CONNOR":
+            return self.prep_image_connor(image)
+
+    def generate_new_images_connor(self, image):
+        images = [image]
+        images.append(cv2.flip(image, 0))
+        for i in range(5):
+            img = imutils.rotate(image, (random.random()-0.5)*20.0, scale=(0.5+(random.random()*0.5)))
+            img = imutils.translate(img, random.random()*20, random.random()*20)
+            images.append(img)
+            images.append(cv2.flip(img, 0))
+        return images
+
+    def generate_new_images(self, image):
+        if self.USER == "JD":
+            return[image]
+        elif self.USER == "ERIC":
+            return[image]
+        elif self.USER == "BRENDON":
+            return[image]
+        elif self.USER == "CONNOR":
+            return self.generate_new_images_connor(image)
+            
     def load_data(self):
         X = []
         y = []
+        images = []
         index = -1
         for category in self.CATEGORIES:
             index += 1
@@ -21,15 +80,18 @@ class MODEL():
             one_hot[index] = 1
             path = os.path.join(self.DATA_DIR, category)
             
-            for img in os.listdir(path):  # get all images in the path
-                image = cv2.imread(os.path.join(path, img))
-                img_arr = np.asfarray(self.prep_image(image))
-                X.append(img_arr)
-                y.append(one_hot)
-                
+            for img_name in os.listdir(path):  # get all images in the path
+                image = cv2.imread(os.path.join(path, img_name))
+                image = self.prep_image(image)
+                for img in self.generate_new_images(image):
+                    images.append(img)
+                    img_arr = np.asfarray(img)
+                    X.append(img_arr)
+                    y.append(one_hot)
+        self.images = images
         return X, y
 
-    def init_model(self):
+    def init_model_erik(self):
         # Configure the CNN
         self.model = tf.keras.models.Sequential()
 
@@ -58,6 +120,51 @@ class MODEL():
         self.model.compile(loss='categorical_crossentropy',
                         optimizer="rmsprop",
                         metrics=['accuracy'])
+
+    def init_model_brendon(self):
+        self.model = tf.keras.models.Sequential()
+
+        self.model.add(tf.keras.layers.Conv2D(34, kernel_size=(3, 3), strides=(1,1), activation="relu", input_shape=(self.IMG_WIDTH, self.IMG_HEIGHT, 1)))
+        self.model.add(tf.keras.layers.MaxPooling2D(pool_size=(2,2), strides=(1,1)))
+
+        self.model.add(tf.keras.layers.Conv2D(34, (3, 3), activation="relu"))
+        self.model.add(tf.keras.layers.MaxPooling2D(pool_size=(2, 2)))
+
+        self.model.add(tf.keras.layers.Flatten())
+
+        self.model.add(tf.keras.layers.Dense(45, activation="relu"))
+        self.model.add(tf.keras.layers.Dropout(.45))
+        self.model.add(tf.keras.layers.Dense(len(self.CATEGORIES), activation="softmax"))
+
+        self.model.compile(loss=tf.keras.losses.categorical_crossentropy,
+                    optimizer=tf.keras.optimizers.SGD(lr=0.02),
+                    metrics=['accuracy'])
+
+    def init_model_connor(self):
+        self.model = tf.keras.models.Sequential()
+
+        self.model.add(tf.keras.layers.Conv2D(34, kernel_size=(3, 3), strides=(2,2), activation="relu", input_shape=(self.IMG_WIDTH, self.IMG_HEIGHT, 1)))
+        self.model.add(tf.keras.layers.MaxPooling2D(pool_size=(4,4), strides=(1,1)))
+
+        self.model.add(tf.keras.layers.Flatten())
+
+        self.model.add(tf.keras.layers.Dense(45, activation="relu"))
+        self.model.add(tf.keras.layers.Dropout(.45))
+        self.model.add(tf.keras.layers.Dense(len(self.CATEGORIES), activation="softmax"))
+
+        self.model.compile(loss=tf.keras.losses.categorical_crossentropy,
+                    optimizer=tf.keras.optimizers.SGD(lr=0.02),
+                    metrics=['accuracy'])
+
+    def init_model(self):
+        if self.USER == "JD":
+            self.init_model_erik()
+        elif self.USER == "ERIC":
+            self.init_model_erik()
+        elif self.USER == "BRENDON":
+            self.init_model_brendon()
+        elif self.USER == "CONNOR":
+            self.init_model_connor()
 
     def train_model(self):
         self.init_model()
@@ -107,16 +214,41 @@ class MODEL():
         index = tf.argmax(prediction[0], axis=0)
         return self.CATEGORIES[index]
 
-    def __init__(self):
-        self.FILE = "RPS_GUI.h5"
-        self.DATA_DIR = "rockpaperscissors"
+    def __init__(self, user, width=150, height=100, batch=100):
+        self.USER = user
+        self.FILE = "RPS_GUI_{}.h5".format(user)
+        self.DATA_DIR = "../rockpaperscissors"
         self.CATEGORIES = ["paper", "rock", "scissors"]
-        self.IMG_WIDTH = 150
-        self.IMG_HEIGHT = 100
-        self.BATCH_SIZE = 100
-
-        # load the model if it was saved previously
-        if os.path.exists(self.FILE):
-            self.model = tf.keras.models.load_model(self.FILE)
-        else:
+        self.IMG_WIDTH = width
+        self.IMG_HEIGHT = height
+        self.BATCH_SIZE = batch
+        self.images = []
+        if not self.load_model(self.FILE):
             self.train_model()
+
+def main(argv):
+    filename=None
+    try:
+        opts, args = getopt.getopt(argv,"hdf:",["file=", "default"])
+    except getopt.GetoptError:
+        print("INCORRECT FORMAT: \"model.py -f <output_file> | -d\"")
+        sys.exit(2)
+    for opt, arg in opts:
+        if opt == '-h':
+            print("model.py -f <output_file> | -d")
+            sys.exit()
+        elif opt in ("-f", "--file"):
+            filename=arg
+        elif opt in ("-d", "--default"):
+            filename="default"
+    if filename == None:
+        print("Please specify filename")
+        sys.exit()
+    model = MODEL("CONNOR")
+
+    if filename != "default":
+        model.FILE = filename
+    model.train_model()
+
+if __name__ == '__main__':
+	main(sys.argv[1:])
